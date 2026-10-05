@@ -1,0 +1,91 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>FieldWhy - how awk splits a line into fields</title>
+<style>
+:root{--bg:#14161a;--panel:#1d2026;--line:#323843;--tx:#e9ecf1;--mut:#97a0ae;--acc:#5cc8b0;--warn:#e8b64c;--no:#e5675f}
+*{box-sizing:border-box}body{margin:0;background:var(--bg);color:var(--tx);font:15px/1.5 system-ui,sans-serif}
+main{max-width:960px;margin:0 auto;padding:20px 16px 60px}
+h1{font-size:24px;margin:0 0 4px}p.sub{color:var(--mut);margin:0 0 14px}
+code,input,select,.mono{font-family:ui-monospace,Menlo,Consolas,monospace}
+.form{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:10px}
+.form label{display:block;font-size:12px;color:var(--mut);margin-bottom:3px}
+.form input,.form select{width:100%;background:var(--panel);border:1px solid var(--line);border-radius:6px;color:var(--tx);padding:9px;font-size:14px}
+.form .wide{grid-column:1/-1}
+.presets{display:flex;flex-wrap:wrap;gap:6px;margin:12px 0}
+.presets button{background:var(--panel);border:1px solid var(--line);color:var(--tx);border-radius:6px;padding:5px 9px;cursor:pointer;font-size:13px}
+.presets button:hover,.presets button.on{border-color:var(--acc)}
+.box{background:var(--panel);border:1px solid var(--line);border-radius:8px;padding:12px 14px;margin:12px 0}
+.box h2{font-size:12px;text-transform:uppercase;letter-spacing:.06em;color:var(--mut);margin:0 0 8px}
+.err{border-color:var(--no);color:var(--no)}
+.warn{border-left:3px solid var(--warn);padding-left:10px;margin:6px 0;font-size:14px}
+table{border-collapse:collapse;width:100%}td,th{border-top:1px solid var(--line);padding:5px 8px;text-align:left;font-size:14px}
+th{color:var(--mut);font-weight:500;font-size:12px;border-top:0}
+td.v{font-family:ui-monospace,Menlo,monospace;white-space:pre}
+.ws{color:var(--acc);opacity:.8}.em{color:var(--mut);font-style:italic}
+.big{font-size:20px}
+footer{color:var(--mut);font-size:12px;margin-top:18px}a{color:var(--acc)}
+</style></head><body><main>
+<h1>FieldWhy</h1>
+<p class="sub">Why did awk give you that many fields? Enter a line and an <code>FS</code>; see exactly how it is split, and what happens when you assign to a field.</p>
+<div class="form">
+<div class="wide"><label for="line">Input line (write a tab as \t)</label><input id="line" spellcheck="false" autocomplete="off"></div>
+<div><label for="fs">FS (field separator; \t = tab)</label><input id="fs" spellcheck="false" autocomplete="off"></div>
+<div><label for="ofs">OFS (output separator)</label><input id="ofs" spellcheck="false" autocomplete="off"></div>
+<div><label for="act">Then run</label><select id="act"><option value="none">nothing</option><option value="rewrite">$1=$1</option><option value="extend">$(NF+2)="X"</option><option value="trunc2">NF=2</option></select></div>
+</div>
+<div class="presets" id="presets"></div>
+<div id="out"></div>
+<footer>Behaviour is GNU awk's. mawk matches on ASCII input but works on bytes, so accented letters and FS="" differ there. Not covered: RS, FPAT, FIELDWIDTHS, -F't' as tab, IGNORECASE, FS regexes that can match nothing. Type the FS as awk's own value (what <code>-F</code> or <code>-v FS=</code> yields after quoting): <code>\|</code> is a regex escape, <code>|</code> is a literal pipe. <a href="index.html">About &amp; tests</a></footer>
+</main>
+<script src="engine.js"></script>
+<script>
+var PRESETS=[
+['Default (blanks)',"  alpha   beta\\tgamma  ",' ','',"none"],
+['A space FS is special',"a  b   c",'[ ]','',"none"],
+['Empty fields',"a,,b,",',','',"none"],
+['Pipe is literal',"x|y|z",'|','',"none"],
+['Escaped pipes',"x||y|z",'\\|\\|','',"none"],
+['Tabs',"name\\tage\\t\\tcity",'\\t','',"none"],
+['Leading separator',"  a b",' +','',"none"],
+['Each character',"hé!","",'',"none"],
+['Rebuild with $1=$1',"a   b    c",' ','-',"rewrite"],
+['Extend past NF',"a b",' ','|',"extend"],
+['Cut with NF=2',"a:b:c:d",':','/',"trunc2"]
+];
+function el(t,c,x){var e=document.createElement(t);if(c)e.className=c;if(x!==undefined)e.textContent=x;return e;}
+function unesc(s){return s.replace(/\\t/g,'\t');}
+function vis(s,parent){
+  if(s==='')return parent.appendChild(el('span','em','(empty)'));
+  Array.from(s).forEach(function(c){if(c===' ')parent.appendChild(el('span','ws','\u2423'));else if(c==='\t')parent.appendChild(el('span','ws','\u2192'));else parent.appendChild(document.createTextNode(c));});
+}
+var $=function(i){return document.getElementById(i);},out=$('out'),pb=$('presets');
+function render(){
+  out.textContent='';
+  var line=unesc($('line').value),fs=unesc($('fs').value),ofs=unesc($('ofs').value),act=$('act').value,R;
+  try{R=FieldWhy.run(line,fs,ofs,act);}catch(e){var b=el('div','box err');b.appendChild(el('div',null,e.message));out.appendChild(b);return;}
+  var b1=el('div','box');b1.appendChild(el('h2',null,'How awk reads FS'));
+  var kinds={default:'FS is a single space: runs of blanks (space, tab, newline) separate fields, and leading and trailing blanks are ignored.',single:'FS is one character, so it is used literally (not as a regex). Every occurrence splits, so empty fields are kept.',regex:'FS is more than one character, so it is a regular expression. Every match splits, so empty fields are kept, including a leading one.',chars:'FS is empty, so gawk makes every character its own field.'};
+  b1.appendChild(el('div',null,kinds[R.kind]));
+  if(R.kind==='single'&&/[|.*+?()\[\]^$\\{}]/.test(fs))b1.appendChild(el('div','warn','Single-character FS is literal, even for regex characters such as "'+fs+'".'));
+  if(R.hasAlt)b1.appendChild(el('div','warn','This FS has alternation (|). awk takes the longest match at each position; this page takes the first alternative that fits, so results can differ.'));
+  if(line==='')b1.appendChild(el('div','warn','An empty line always has NF=0, whatever FS is.'));
+  out.appendChild(b1);
+  var b2=el('div','box');b2.appendChild(el('h2',null,'Fields from the line'));
+  var split=FieldWhy.run(line,fs,ofs,'none');
+  var nf=el('div','big','NF = '+split.NF);b2.appendChild(nf);
+  if(split.NF){var t=el('table'),h=el('tr');['Field','Value'].forEach(function(x){h.appendChild(el('th',null,x));});t.appendChild(h);
+    split.fields.forEach(function(f,i){var r=el('tr');r.appendChild(el('td',null,'$'+(i+1)));var td=el('td','v');vis(f,td);r.appendChild(td);t.appendChild(r);});b2.appendChild(t);}
+  var note=el('div','mono');note.appendChild(document.createTextNode('$0 = '));vis(line,note);b2.appendChild(note);
+  out.appendChild(b2);
+  if(R.changed){
+    var b3=el('div','box');b3.appendChild(el('h2',null,'After '+({rewrite:'$1=$1',extend:'$(NF+2)="X"',trunc2:'NF=2'})[act]));
+    b3.appendChild(el('div','big','NF = '+R.NF));
+    var r0=el('div','mono');r0.appendChild(document.createTextNode('$0 = '));vis(R.record,r0);b3.appendChild(r0);
+    b3.appendChild(el('div','warn','Assigning to a field or NF rebuilds $0 by joining the fields with OFS ("'+ofs+'"), so the original spacing is gone.'));
+    out.appendChild(b3);
+  }
+}
+PRESETS.forEach(function(p){var b=el('button',null,p[0]);b.type='button';b.onclick=function(){$('line').value=p[1];$('fs').value=p[2];$('ofs').value=p[3]===''?' ':p[3];$('act').value=p[4];[].forEach.call(pb.children,function(c){c.classList.remove('on');});b.classList.add('on');render();};pb.appendChild(b);});
+['line','fs','ofs','act'].forEach(function(i){$(i).addEventListener('input',function(){[].forEach.call(pb.children,function(c){c.classList.remove('on');});render();});});
+pb.children[1].click();
+</script></body></html>
