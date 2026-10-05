@@ -29,7 +29,7 @@ footer{color:var(--mut);font-size:12px;margin-top:18px}a{color:var(--acc)}
 <p class="sub">Why did awk give you that many fields? Enter a line and an <code>FS</code>; see exactly how it is split, and what happens when you assign to a field.</p>
 <div class="form">
 <div class="wide"><label for="line">Input line (write a tab as \t)</label><input id="line" spellcheck="false" autocomplete="off"></div>
-<div><label for="fs">FS (field separator; \t = tab)</label><input id="fs" spellcheck="false" autocomplete="off"></div>
+<div><label for="fs">FS (one space = default blanks; \t = tab)</label><input id="fs" spellcheck="false" autocomplete="off"></div>
 <div><label for="ofs">OFS (output separator)</label><input id="ofs" spellcheck="false" autocomplete="off"></div>
 <div><label for="act">Then run</label><select id="act"><option value="none">nothing</option><option value="rewrite">$1=$1</option><option value="extend">$(NF+2)="X"</option><option value="trunc2">NF=2</option></select></div>
 </div>
