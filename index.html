@@ -1,0 +1,14 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>FieldWhy - how awk splits a line into fields</title>
+<style>body{margin:0;background:#14161a;color:#e9ecf1;font:16px/1.6 system-ui,sans-serif}main{max-width:720px;margin:0 auto;padding:48px 20px}h1{font-size:34px;margin:0 0 8px}code{font-family:ui-monospace,Menlo,monospace;background:#1d2026;padding:1px 5px;border-radius:4px}a.btn{display:inline-block;background:#5cc8b0;color:#06201a;padding:10px 18px;border-radius:8px;text-decoration:none;font-weight:600;margin:12px 0}a{color:#5cc8b0}.m{color:#97a0ae}</style></head><body><main>
+<h1>FieldWhy</h1>
+<p class="m">Why did awk give you that many fields?</p>
+<p>Enter a line and an <code>FS</code>. FieldWhy shows how awk reads that FS (blank runs, one literal character, or a regex), the fields it produces, and what happens to <code>$0</code> when you assign to a field or to <code>NF</code>.</p>
+<a class="btn" href="app.html">Open the app</a>
+<p>Traps it explains: <code>FS=" "</code> versus <code>FS="[ ]"</code>, <code>FS="|"</code> being literal while <code>FS="||"</code> is a regex, a leading empty field with <code>FS=" +"</code>, and <code>$1=$1</code> collapsing your spacing.</p>
+<h3>How it was tested</h3>
+<p class="m">Against GNU awk 5.1.0 on 198,000 random lines (6 seeds), each run through four programs (split, <code>$1=$1</code>, <code>$(NF+2)="X"</code>, <code>NF=2</code>) with 33 FS values: blank, 10 single characters, empty, and 21 regexes. 792,000 comparisons, 0 mismatches. mawk 1.3.4 agrees on all 413,148 ASCII comparisons; on lines with non-ASCII characters it works on bytes, so those differ and are excluded. FS values were passed through <code>ENVIRON</code> so no escape processing got in the way. A first seed was used while building (it found <code>$1=$1</code> on an empty line, which gives NF=1).</p>
+<p class="m">Known gap: FS regexes with alternation (<code>a|ab</code>). awk takes the longest match, this page takes the first alternative: 3,845 of 120,000 such comparisons differed, and the app warns when it sees one. Not covered: RS, FPAT, FIELDWIDTHS, <code>-Ft</code>, IGNORECASE, FS regexes that can match nothing. Entirely client-side.</p>
+<p><a href="https://github.com/iLanis-agent/fieldwhy">Source</a></p>
+</main></body></html>
